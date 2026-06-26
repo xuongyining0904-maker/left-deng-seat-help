@@ -100,7 +100,8 @@ function SeatMapAdmin({ zoneConfigs, selectedZone, setSelectedZone }: Props & { 
   return <div className="table"><label className="field">选择区域<select value={config.zone} onChange={(event) => setSelectedZone(event.target.value)}>{zoneConfigs.map((item) => <option key={item.zone}>{item.zone}</option>)}</select></label><div className="status"><strong>{config.zone} · 已登记 {seats.length} 人</strong></div>{config.rowCounts.map((count, rowIndex) => <div key={rowIndex}><p className="muted">{rowIndex + 1}排</p><div className="admin-seats">{Array.from({ length: count }, (_, noIndex) => { const no = noIndex + 1; const owner = seats.find((seat) => seat.row === rowIndex + 1 && seat.no === no); return <div key={no} title={owner?.user?.weibo_name || owner?.user?.account || ''} className={'seat ' + (owner ? 'taken' : '')} />; })}</div></div>)}</div>;
 }
 
-function parseRowCounts(form: FormData) {
+function ConfigAdmin({ zoneConfigs, setZoneConfigs }: Props) {
+  function parseRowCounts(form: FormData) {
     const custom = String(form.get('rowCounts') ?? '').trim();
     if (custom) {
       const counts = custom.split(/[,，\s]+/).map(Number).filter((item) => Number.isFinite(item) && item > 0);
@@ -146,7 +147,29 @@ function parseRowCounts(form: FormData) {
     }
   }
 
-  return <div className="table"><form className="row" onSubmit={(event) => { event.preventDefault(); addZone(new FormData(event.currentTarget)); event.currentTarget.reset(); }}><input name="zone" placeholder="新增区名，如 318区" /><select name="tier" defaultValue="三层看台">{tiers.map((tier) => <option key={tier}>{tier}</option>)}</select><input name="rows" type="number" defaultValue={10} /><input name="max" type="number" defaultValue={20} /><input name="rowCounts" placeholder="每排号数：14,14,16" /><button className="btn">新增区域</button></form>{zoneConfigs.map((config) => <form className="row" key={config.zone} onSubmit={(event) => { event.preventDefault(); saveConfig(config.zone, new FormData(event.currentTarget)); }}><input name="zone" defaultValue={config.zone} /><select name="tier" defaultValue={config.tier}>{tiers.map((tier) => <option key={tier}>{tier}</option>)}</select><input name="rows" type="number" defaultValue={config.rowCounts.length} /><input name="max" type="number" defaultValue={Math.max(...config.rowCounts)} /><input name="rowCounts" defaultValue={config.rowCounts.join(',')} /><button className="btn secondary">保存</button><button className="btn danger" type="button" onClick={() => removeZone(config.zone)}>删除</button></form>)}</div>;
+  return (
+    <div className="table">
+      <form className="row" onSubmit={(event) => { event.preventDefault(); addZone(new FormData(event.currentTarget)); event.currentTarget.reset(); }}>
+        <input name="zone" placeholder="新增区名，如 318区" />
+        <select name="tier" defaultValue="三层看台">{tiers.map((tier) => <option key={tier}>{tier}</option>)}</select>
+        <input name="rows" type="number" defaultValue={10} />
+        <input name="max" type="number" defaultValue={20} />
+        <input name="rowCounts" placeholder="每排号数：14,14,16" />
+        <button className="btn">新增区域</button>
+      </form>
+      {zoneConfigs.map((config) => (
+        <form className="row" key={config.zone} onSubmit={(event) => { event.preventDefault(); saveConfig(config.zone, new FormData(event.currentTarget)); }}>
+          <input name="zone" defaultValue={config.zone} />
+          <select name="tier" defaultValue={config.tier}>{tiers.map((tier) => <option key={tier}>{tier}</option>)}</select>
+          <input name="rows" type="number" defaultValue={config.rowCounts.length} />
+          <input name="max" type="number" defaultValue={Math.max(...config.rowCounts)} />
+          <input name="rowCounts" defaultValue={config.rowCounts.join(',')} />
+          <button className="btn secondary">保存</button>
+          <button className="btn danger" type="button" onClick={() => removeZone(config.zone)}>删除</button>
+        </form>
+      ))}
+    </div>
+  );
 }
 
 function ProofAdmin({ proofFields, setProofFields }: { proofFields: ProofField[]; setProofFields: Props['setProofFields'] }) {

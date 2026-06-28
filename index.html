@@ -178,6 +178,7 @@ function currentSeat(){return (state.user?.seats||{})[state.selectedDay]||null}
 function currentRequest(){return (state.user?.seatRequests||{})[state.selectedDay]||null}
 function userSeatFor(u,dayKey){return (u?.seats||{})[dayKey]||null}
 function userRequestFor(u,dayKey){return (u?.seatRequests||{})[dayKey]||null}
+function currentDayNote(){ const seat=currentSeat(); const req=currentRequest(); return seat?.message ?? req?.message ?? state.user?.fanNote ?? ''; }
 function seatRequestLabel(s){return {pending:'座位待审核',approved:'座位已通过',rejected:'座位已打回'}[s]||s}
 function seatDisplayText(s){ if(!s)return ''; if(s.zone&&s.row&&s.no)return s.zone+'-'+rowLabel(s.row)+'行-'+s.no+'号'; return s.seatText||''; }
 function seatRequestNotice(){
@@ -201,6 +202,7 @@ function bindProfileAndSeat(){
   const saveProfileBtn=document.getElementById('saveProfile');
   const withdrawBtn=document.getElementById('withdrawSeat');
   const editBtn=document.getElementById('editPendingSeat');
+  const cancelSeatBtn=document.getElementById('cancelSeat');
   const zoneEl=document.getElementById('seatZone');
   const req=currentRequest();
   const seat=currentSeat();
@@ -210,6 +212,7 @@ function bindProfileAndSeat(){
   if(saveProfileBtn)saveProfileBtn.onclick=saveProfile;
   if(withdrawBtn)withdrawBtn.onclick=withdrawSeatRequest;
   if(editBtn)editBtn.onclick=()=>{state.seatEditMode=true;render()};
+  if(cancelSeatBtn)cancelSeatBtn.onclick=cancelSeat;
 }
 function renderSeatGate(){
   const form=shouldShowSeatForm()?seatFormHtml(state.seatEditMode?'重新提交座位审核':'提交座位审核',state.seatEditMode?'更新座位申请':'提交座位审核'):'';
@@ -221,7 +224,7 @@ function renderUser(){
   const seat=currentSeat();
   if(!seat)return renderSeatGate();
   const form=shouldShowSeatForm()?seatFormHtml(state.seatEditMode?'重新提交座位变更':'申请修改座位',state.seatEditMode?'更新座位申请':'提交座位审核'):'';
-  html('<div class="grid"><section class="panel"><div class="head"><h3>'+esc(dayLabel(state.selectedDay))+' 附近座位窗口</h3><span class="muted">前后 5 排、左右 10 号</span></div><div class="body">'+dayTabs('user')+'<div id="nearBox">正在加载...</div></div></section><section class="panel"><div class="head"><h3>我的互助信息</h3></div><div class="body"><div class="status"><b>'+esc(state.user.weiboName)+'</b><p><span class="day-label">'+esc(dayLabel(state.selectedDay))+'</span> 我的座位：'+seatText(seat)+'</p><label class="field">我的附近留言<textarea id="note">'+esc(state.user.fanNote)+'</textarea></label><button id="saveNote" class="btn secondary">保存留言</button></div>'+seatRequestNotice()+profileEditBox()+form+'</div></section></div>');
+  html('<div class="grid"><section class="panel"><div class="head"><h3>'+esc(dayLabel(state.selectedDay))+' 附近座位窗口</h3><span class="muted">前后 5 排、左右 10 号</span></div><div class="body">'+dayTabs('user')+'<div id="nearBox">正在加载...</div></div></section><section class="panel"><div class="head"><h3>我的互助信息</h3></div><div class="body"><div class="status"><b>'+esc(state.user.weiboName)+'</b><p><span class="day-label">'+esc(dayLabel(state.selectedDay))+'</span> 我的座位：'+seatText(seat)+'</p><label class="field">我的附近留言<textarea id="note">'+esc(currentDayNote())+'</textarea></label><div class="mini"><button id="saveNote" class="btn secondary">保存留言</button><button id="cancelSeat" class="btn danger">取消当前场次座位</button></div><p class="muted">留言和取消座位都只影响当前选中的 '+esc(dayLabel(state.selectedDay))+'。</p></div>'+seatRequestNotice()+profileEditBox()+form+'</div></section></div>');
   bindDayTabs('user');
   bindProfileAndSeat();
   document.getElementById('saveNote').onclick=saveNote;
@@ -286,6 +289,22 @@ async function withdrawSeatRequest(){
     hideLoading();
     render();
   }catch(e){await appAlert(e.message,'出错了')}
+}
+async function cancelSeat(){
+  const label=dayLabel(state.selectedDay);
+  if(!await appConfirm('确定取消 '+label+' 的座位登记吗？取消后会清空这一天的座位、留言和座位审核记录，附近同担也看不到你。其他场次不受影响。','取消座位',true))return;
+  try{
+    showLoading('正在取消 '+label+' 座位，请等待。','正在处理');
+    const user=await rpc('zd_cancel_seat',{p_token:state.token,p_day_key:state.selectedDay});
+    state.user=user;
+    state.seatEditMode=false;
+    hideLoading();
+    await appAlert(label+' 座位已取消','已取消');
+    render();
+  }catch(e){
+    hideLoading();
+    await appAlert(e.message,'出错了')
+  }
 }
 async function saveNote(){ try{ const user=await rpc('zd_save_note',{p_token:state.token,p_day_key:state.selectedDay,p_note:document.getElementById('note').value}); state.user=user; await appAlert('留言已保存','已保存'); render(); }catch(e){await appAlert(e.message,'出错了')} }
 async function saveProfile(){ try{ const user=await rpc('zd_update_profile',{p_token:state.token,p_weibo:document.getElementById('profileWeibo').value,p_wechat:document.getElementById('profileWechat').value,p_offline:document.getElementById('profileOffline').value==='是'}); state.user=user; await appAlert('公开资料已保存','已保存'); render(); }catch(e){await appAlert(e.message,'出错了')} }
